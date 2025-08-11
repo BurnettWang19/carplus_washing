@@ -1,72 +1,24 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Car, Droplets, MapPin, CheckCircle, Plus, X, Eye, Pencil } from 'lucide-react';
 import './App.css';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, collection, getDocs, addDoc, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+
+// 你的 Firebase 設定
+const firebaseConfig = {
+  apiKey: "AIzaSyBWmNgfsLITAvJDLXLKcovYm1-P8Ej7O8g",
+  authDomain: "carplus-washing.firebaseapp.com",
+  projectId: "carplus-washing",
+  storageBucket: "carplus-washing.firebasestorage.app",
+  messagingSenderId: "5720613818",
+  appId: "1:5720613818:web:3f206f8b7222595f1df383"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
 
 const App = () => {
-  const [cars, setCars] = useState([
-    {
-      id: 1,
-      plateNumber: 'ABC-1234',
-      model: 'Toyota Camry',
-      color: '白色',
-      year: '2022',
-      lastWash: '2025-08-08',
-      status: 'all_cars',
-      mileage: '25,000',
-      lastReturn: '2025-08-09',
-      nextRental: '2025-08-11'
-    },
-    {
-      id: 2,
-      plateNumber: 'XYZ-5678',
-      model: 'Honda Civic',
-      color: '銀色',
-      year: '2023',
-      lastWash: '2025-08-09',
-      status: 'need_wash',
-      mileage: '15,000',
-      lastReturn: '2025-08-09',
-      nextRental: '2025-08-12'
-    },
-    {
-      id: 3,
-      plateNumber: 'DEF-9876',
-      model: 'Nissan Sentra',
-      color: '黑色',
-      year: '2021',
-      lastWash: '2025-08-06',
-      status: 'washed_ready',
-      mileage: '35,000',
-      lastReturn: '2025-08-08',
-      nextRental: '2025-08-10'
-    },
-    {
-      id: 4,
-      plateNumber: 'GHI-1111',
-      model: 'Mazda CX-5',
-      color: '藍色',
-      year: '2023',
-      lastWash: '2025-08-10',
-      status: 'in_dudu',
-      mileage: '8,000',
-      lastReturn: '2025-08-10',
-      nextRental: '2025-08-13'
-    },
-    // 以下為 30 筆測試資料
-    ...Array.from({ length: 30 }, (_, i) => ({
-      id: 5 + i,
-      plateNumber: `TST-${1000 + i}`,
-      model: ['Toyota Yaris', 'Honda Fit', 'Nissan Kicks', 'Mazda 3', 'Ford Focus'][i % 5],
-      color: ['白色', '黑色', '銀色', '藍色', '紅色'][i % 5],
-      year: `${2020 + (i % 5)}`,
-      lastWash: `2025-08-${(i % 28 + 1).toString().padStart(2, '0')}`,
-      status: 'all_cars',
-      mileage: `${(5000 + i * 1000).toLocaleString()}`,
-      lastReturn: `2025-08-${(i % 28 + 1).toString().padStart(2, '0')}`,
-      nextRental: `2025-08-${((i + 2) % 28 + 1).toString().padStart(2, '0')}`
-    }))
-  ]);
-
+  const [cars, setCars] = useState([]);
   const [draggedCar, setDraggedCar] = useState(null);
   const [selectedCar, setSelectedCar] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -74,10 +26,8 @@ const App = () => {
   const [newCar, setNewCar] = useState({
     plateNumber: '',
     model: '',
-    color: '',
-    year: '',
-    mileage: '',
-    isExternal: false // 新增
+    isExternal: false,
+    level: 'A' // 預設Ａ級
   });
   const [editingStatus, setEditingStatus] = useState(false);
   const [searchTerms, setSearchTerms] = useState({
@@ -95,6 +45,7 @@ const App = () => {
 
   const columns = [
     { id: 'all_cars', title: '所有車輛', icon: Car, className: 'column-gray' },
+    { id: 'not_returned_need_wash', title: '還沒還車待洗', icon: Droplets, className: 'column-purple' }, // 新增
     { id: 'need_wash_shinkansen', title: '待洗放新幹線', icon: Droplets, className: 'column-blue' },
     { id: 'need_wash_dudu', title: '待洗進嘟嘟房', icon: Droplets, className: 'column-cyan' },
     { id: 'mazda3_need_wash', title: '馬三待洗', icon: Droplets, className: 'column-pink' },
@@ -130,54 +81,83 @@ const App = () => {
     }
   };
 
-  const handleDrop = (e, targetStatus) => {
+  const handleDrop = async (e, targetStatus) => {
     e.preventDefault();
     setDragOverColumn(null);
-    
+
     if (draggedCar && draggedCar.status !== targetStatus) {
-      setCars(cars.map(car => 
-        car.id === draggedCar.id 
-          ? { 
-              ...car, 
-              status: targetStatus,
-              lastWash: (targetStatus === 'washed_ready' || targetStatus === 'in_dudu') 
-                ? new Date().toISOString().split('T')[0] 
-                : car.lastWash
-            }
-          : car
-      ));
+      const carRef = doc(db, "cars", draggedCar.id);
+      await updateDoc(carRef, {
+        status: targetStatus,
+        lastWash: (targetStatus === 'washed_ready' || targetStatus === 'in_dudu')
+          ? new Date().toISOString().split('T')[0]
+          : draggedCar.lastWash
+      });
+
+      // 重新讀取資料
+      const querySnapshot = await getDocs(collection(db, "cars"));
+      const carList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCars(carList);
     }
   };
 
-  const addCar = () => {
+  // 讀取車輛資料
+  useEffect(() => {
+    const fetchCars = async () => {
+      const querySnapshot = await getDocs(collection(db, "cars"));
+      const carList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCars(carList);
+    };
+    fetchCars();
+  }, []);
+
+  // 新增車輛到 Firebase
+  const addCar = async () => {
     if (newCar.plateNumber && newCar.model) {
-      const car = {
-        id: Date.now(),
-        ...newCar,
-        lastWash: '',
-        status: 'all_cars',
-        lastReturn: new Date().toISOString().split('T')[0],
-        nextRental: ''
-      };
-      setCars([...cars, car]);
-      setNewCar({ plateNumber: '', model: '', color: '', year: '', mileage: '', isExternal: false });
+      await addDoc(collection(db, "cars"), {
+        plateNumber: newCar.plateNumber,
+        model: newCar.model,
+        level: newCar.level,
+        isExternal: newCar.isExternal
+      });
+      // 重新讀取資料
+      const querySnapshot = await getDocs(collection(db, "cars"));
+      const carList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setCars(carList);
+      setNewCar({ plateNumber: '', model: '', isExternal: false, level: 'A' });
       setShowAddForm(false);
     }
   };
 
-  const handleStatusChange = (carId, newStatus) => {
-    setCars(cars.map(car =>
-      car.id === carId
-        ? {
-            ...car,
-            status: newStatus,
-            lastWash: (newStatus === 'washed_ready' || newStatus === 'in_dudu')
-              ? new Date().toISOString().split('T')[0]
-              : car.lastWash
-          }
-        : car
-    ));
+  const handleStatusChange = async (carId, newStatus) => {
+    // 找到該車輛
+    const car = cars.find(c => c.id === carId);
+    if (!car) return;
+
+    // 更新 Firestore
+    const carRef = doc(db, "cars", carId);
+    await updateDoc(carRef, {
+      status: newStatus,
+      lastWash: (newStatus === 'washed_ready' || newStatus === 'in_dudu')
+        ? new Date().toISOString().split('T')[0]
+        : car.lastWash
+    });
+
+    // 重新讀取資料
+    const querySnapshot = await getDocs(collection(db, "cars"));
+    const carList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setCars(carList);
+
     setSelectedCar(prev => prev ? { ...prev, status: newStatus } : prev);
+  };
+
+  const handleDeleteCar = async (carId) => {
+    await deleteDoc(doc(db, "cars", carId));
+    setSelectedCar(null);
+    // 重新讀取資料
+    const querySnapshot = await getDocs(collection(db, "cars"));
+    const carList = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setCars(carList);
   };
 
   const getCarsByStatus = (status) => {
@@ -211,6 +191,7 @@ const App = () => {
   const getStatusText = (status) => {
     switch (status) {
       case 'all_cars': return '所有車輛';
+      case 'not_returned_need_wash': return '還沒還車待洗'; // 新增
       case 'need_wash_shinkansen': return '待洗放新幹線';
       case 'need_wash_dudu': return '待洗進嘟嘟房';
       case 'mazda3_need_wash': return '馬三待洗';
@@ -320,6 +301,7 @@ const App = () => {
                   // 狀態對應底色 class
                   const statusColorClass = {
                     all_cars: 'car-card-gray',
+                    not_returned_need_wash: 'car-card-purple', // 新增
                     need_wash_shinkansen: 'car-card-blue',
                     need_wash_dudu: 'car-card-cyan',
                     mazda3_need_wash: 'car-card-pink',
@@ -337,6 +319,10 @@ const App = () => {
                       onClick={() => setSelectedCar(car)}
                       style={{ position: 'relative' }}
                     >
+                      {/* 左上角 A~E 級標籤 */}
+                      <div className={`car-level-tag car-level-${car.level || 'A'}`}>
+                        {car.level || 'A'}
+                      </div>
                       {car.isExternal && (
                         <div className="external-tag">
                           外站車
@@ -379,8 +365,17 @@ const App = () => {
                 車輛詳細資訊
               </h2>
               <button
+                onClick={() => handleDeleteCar(selectedCar.id)}
+                className="close-btn"
+                style={{ background: '#ef4444', color: '#fff', marginRight: 8 }}
+                title="刪除車輛"
+              >
+                <X size={24} />
+              </button>
+              <button
                 onClick={() => setSelectedCar(null)}
                 className="close-btn"
+                title="關閉"
               >
                 <X size={24} />
               </button>
@@ -397,25 +392,37 @@ const App = () => {
                 目前狀態: {getStatusText(selectedCar.status)}
               </div>
 
-              <div className="status-change-btns" style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+              <div className="status-change-btns" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, marginTop: 16 }}>
                 {columns
                   .filter(col => col.id !== selectedCar.status)
                   .map(col => {
                     let btnClass = '';
-                    if (col.id === 'need_wash') btnClass = 'btn-status-blue';
+                    if (col.id === 'not_returned_need_wash') btnClass = 'btn-status-purple';
+                    if (col.id === 'need_wash_shinkansen') btnClass = 'btn-status-blue';
+                    if (col.id === 'need_wash_dudu') btnClass = 'btn-status-cyan';
+                    if (col.id === 'mazda3_need_wash') btnClass = 'btn-status-pink';
                     if (col.id === 'washed_ready') btnClass = 'btn-status-orange';
                     if (col.id === 'in_dudu') btnClass = 'btn-status-green';
                     return (
                       <button
                         key={col.id}
                         className={`btn btn-status ${btnClass}`}
-                        style={{ flex: 1 }}
+                        style={{ width: '100%' }}
                         onClick={() => handleStatusChange(selectedCar.id, col.id)}
                       >
                         {col.title}
                       </button>
                     );
                   })}
+              </div>
+              <div className="form-buttons" style={{ marginTop: 24 }}>
+                <button
+                  onClick={() => handleDeleteCar(selectedCar.id)}
+                  className="btn btn-secondary"
+                  style={{ background: '#ef4444', color: '#fff' }}
+                >
+                  刪除車輛
+                </button>
               </div>
             </div>
           </div>
@@ -440,63 +447,43 @@ const App = () => {
               </button>
             </div>
             <div className="modal-body">
-              <div style={{ marginBottom: 12 }}>
-                <label>
-                  <input
-                    type="radio"
-                    name="isExternal"
-                    checked={!newCar.isExternal}
-                    onChange={() => setNewCar({ ...newCar, isExternal: false })}
-                    style={{ marginRight: 4 }}
-                  />
-                  一般車
-                </label>
-                <label style={{ marginLeft: 16 }}>
-                  <input
-                    type="radio"
-                    name="isExternal"
-                    checked={newCar.isExternal}
-                    onChange={() => setNewCar({ ...newCar, isExternal: true })}
-                    style={{ marginRight: 4 }}
-                  />
-                  外站車
-                </label>
+              {/* 外站車大按鈕 */}
+              <button
+                type="button"
+                className={`external-btn${newCar.isExternal ? ' active' : ''}`}
+                onClick={() => setNewCar({ ...newCar, isExternal: !newCar.isExternal })}
+                style={{ width: '100%', marginBottom: 16 }}
+              >
+                {newCar.isExternal ? '外站車（點擊取消）' : '外站車'}
+              </button>
+              {/* Ａ～Ｅ級車選擇 */}
+              <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
+                {['A', 'B', 'C', 'D', 'E'].map(lvl => (
+                  <button
+                    key={lvl}
+                    type="button"
+                    className={`level-btn${newCar.level === lvl ? ` active car-level-${lvl}` : ''}`}
+                    onClick={() => setNewCar({ ...newCar, level: lvl })}
+                    style={{ flex: 1 }}
+                  >
+                    {lvl}級車
+                  </button>
+                ))}
               </div>
               <div className="form-grid">
                 <input
                   type="text"
                   placeholder="車牌號碼*"
                   value={newCar.plateNumber}
-                  onChange={(e) => setNewCar({...newCar, plateNumber: e.target.value})}
+                  onChange={(e) => setNewCar({ ...newCar, plateNumber: e.target.value })}
                   className="form-input"
                 />
                 <input
                   type="text"
                   placeholder="車型*"
                   value={newCar.model}
-                  onChange={(e) => setNewCar({...newCar, model: e.target.value})}
+                  onChange={(e) => setNewCar({ ...newCar, model: e.target.value })}
                   className="form-input"
-                />
-                <input
-                  type="text"
-                  placeholder="顏色"
-                  value={newCar.color}
-                  onChange={(e) => setNewCar({...newCar, color: e.target.value})}
-                  className="form-input"
-                />
-                <input
-                  type="text"
-                  placeholder="年份"
-                  value={newCar.year}
-                  onChange={(e) => setNewCar({...newCar, year: e.target.value})}
-                  className="form-input"
-                />
-                <input
-                  type="text"
-                  placeholder="里程數"
-                  value={newCar.mileage}
-                  onChange={(e) => setNewCar({...newCar, mileage: e.target.value})}
-                  className="form-input full-width"
                 />
               </div>
               <div className="form-buttons">

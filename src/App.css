@@ -83,19 +83,34 @@ body {
   background: #4b5563;
 }
 
+.btn-status-purple {
+  background: #9b8ae7;
+  color: #fff;
+}
+
 .btn-status-blue {
-  background: #e3f2fd;
-  color: #1e40af;
+  background: #2563eb;
+  color: #fff;
+}
+
+.btn-status-cyan {
+  background: #22d3ee;
+  color: #fff;
+}
+
+.btn-status-pink {
+  background: #f472b6;
+  color: #fff;
 }
 
 .btn-status-orange {
-  background: #fff3e0;
-  color: #c2410c;
+  background: #fb923c;
+  color: #fff;
 }
 
 .btn-status-green {
-  background: #e0f7fa;
-  color: #166534;
+  background: #16a34a;
+  color: #fff;
 }
 
 .board {
@@ -204,6 +219,10 @@ body {
 
 .car-card-pink {
   background: #ffe4e6;
+}
+
+.car-card-purple {
+  background: #9b8ae7;
 }
 
 .highlight-card {
@@ -454,6 +473,102 @@ body {
   border-radius: 12px;
   font-weight: bold;
   z-index: 2;
+}
+
+.external-btn {
+  background: #ffe5e5;
+  color: #c2410c;
+  border: none;
+  border-radius: 8px;
+  font-size: 18px;
+  font-weight: bold;
+  padding: 12px 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.external-btn.active {
+  background: #ff6b81;
+  color: #fff;
+}
+
+.level-btn {
+  background: #f3f4f6;
+  color: #1f2937;
+  border: none;
+  border-radius: 8px;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 12px 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.level-btn.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.level-btn.active.car-level-A {
+  background: #2563eb;
+  color: #fff;
+}
+
+.level-btn.active.car-level-B {
+  background: #16a34a;
+  color: #fff;
+}
+
+.level-btn.active.car-level-C {
+  background: #f59e42;
+  color: #fff;
+}
+
+.level-btn.active.car-level-D {
+  background: #c026d3;
+  color: #fff;
+}
+
+.level-btn.active.car-level-E {
+  background: #ef4444;
+  color: #fff;
+}
+
+.car-level-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+  font-size: 15px;
+  color: #fff;
+  z-index: 2;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
+}
+
+.car-level-A {
+  background: #2563eb;
+}
+
+.car-level-B {
+  background: #16a34a;
+}
+
+.car-level-C {
+  background: #f59e42;
+}
+
+.car-level-D {
+  background: #c026d3;
+}
+
+.car-level-E {
+  background: #ef4444;
 }
 
 /* 響應式設計 */
